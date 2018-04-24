@@ -1,8 +1,8 @@
 (function e(t,n,r){function s(o,u){if(!n[o]){if(!t[o]){var a=typeof require=="function"&&require;if(!u&&a)return a(o,!0);if(i)return i(o,!0);var f=new Error("Cannot find module '"+o+"'");throw f.code="MODULE_NOT_FOUND",f}var l=n[o]={exports:{}};t[o][0].call(l.exports,function(e){var n=t[o][1][e];return s(n?n:e)},l,l.exports,e,t,n,r)}return n[o].exports}var i=typeof require=="function"&&require;for(var o=0;o<r.length;o++)s(r[o]);return s})({1:[function(require,module,exports){
 (function (global){
-var L = (typeof window !== "undefined" ? window['L'] : typeof global !== "undefined" ? global['L'] : null)
-var fetchJsonp = require('fetch-jsonp')
-var bboxIntersect = require('bbox-intersect')
+var L = (typeof window !== "undefined" ? window['L'] : typeof global !== "undefined" ? global['L'] : null);
+var fetchJsonp = require('fetch-jsonp');
+var bboxIntersect = require('bbox-intersect');
 
 /**
  * Converts tile xyz coordinates to Quadkey
@@ -12,15 +12,15 @@ var bboxIntersect = require('bbox-intersect')
  * @return {Number} Quadkey
  */
 function toQuadKey (x, y, z) {
-  var index = ''
+  var index = '';
   for (var i = z; i > 0; i--) {
-    var b = 0
-    var mask = 1 << (i - 1)
-    if ((x & mask) !== 0) b++
-    if ((y & mask) !== 0) b += 2
-    index += b.toString()
+    var b = 0;
+    var mask = 1 << (i - 1);
+    if ((x & mask) !== 0) b++;
+    if ((y & mask) !== 0) b += 2;
+    index += b.toString();
   }
-  return index
+  return index;
 }
 
 /**
@@ -29,26 +29,11 @@ function toQuadKey (x, y, z) {
  * @return {Array} [south_lat, west_lng, north_lat, east_lng]
  */
 function toBingBBox (bboxString) {
-  var bbox = bboxString.split(',')
-  return [bbox[1], bbox[0], bbox[3], bbox[2]]
+  var bbox = bboxString.split(',');
+  return [bbox[1], bbox[0], bbox[3], bbox[2]];
 }
 
-var VALID_IMAGERY_SETS = [
-  'Aerial',
-  'AerialWithLabels',
-  'AerialWithLabelsOnDemand',
-  'Road',
-  'RoadOnDemand',
-  'CanvasLight',
-  'CanvasDark',
-  'CanvasGray',
-  'OrdnanceSurvey'
-]
-
-var DYNAMIC_IMAGERY_SETS = [
-  'AerialWithLabelsOnDemand',
-  'RoadOnDemand'
-]
+var VALID_IMAGERY_SETS = ['Aerial', 'AerialWithLabels', 'Road'];
 
 /**
  * Create a new Bing Maps layer.
@@ -68,9 +53,7 @@ L.TileLayer.Bing = L.TileLayer.extend({
     bingMapsKey: null, // Required
     imagerySet: 'Aerial',
     culture: 'en-US',
-    minZoom: 1,
-    minNativeZoom: 1,
-    maxNativeZoom: 19
+    minZoom: 1
   },
 
   statics: {
@@ -80,105 +63,100 @@ L.TileLayer.Bing = L.TileLayer.extend({
 
   initialize: function (options) {
     if (typeof options === 'string') {
-      options = { bingMapsKey: options }
+      options = { bingMapsKey: options };
     }
     if (options && options.BingMapsKey) {
-      options.bingMapsKey = options.BingMapsKey
-      console.warn('use options.bingMapsKey instead of options.BingMapsKey')
+      options.bingMapsKey = options.BingMapsKey;
+      console.warn('use options.bingMapsKey instead of options.BingMapsKey');
     }
     if (!options || !options.bingMapsKey) {
-      throw new Error('Must supply options.BingMapsKey')
+      throw new Error('Must supply options.BingMapsKey');
     }
-    options = L.setOptions(this, options)
+    options = L.setOptions(this, options);
     if (VALID_IMAGERY_SETS.indexOf(options.imagerySet) < 0) {
-      throw new Error("'" + options.imagerySet + "' is an invalid imagerySet, see https://github.com/digidem/leaflet-bing-layer#parameters")
+      throw new Error("'" + options.imagerySet + "' is an invalid imagerySet, see https://github.com/gmaclennan/leaflet-bing-layer#parameters");
     }
-    if (options && options.style && DYNAMIC_IMAGERY_SETS.indexOf(options.imagerySet) < 0) {
-      console.warn('Dynamic styles will only work with these imagerySet choices: ' + DYNAMIC_IMAGERY_SETS.join(', '))
-    }
+    // Bing maps do not have zoom=0 tiles.
+    options.minZoom = Math.max(1, options.minZoom);
 
     var metaDataUrl = L.Util.template(L.TileLayer.Bing.METADATA_URL, {
       bingMapsKey: this.options.bingMapsKey,
       imagerySet: this.options.imagerySet
-    })
+    });
 
-    this._imageryProviders = []
-    this._attributions = []
+    this._imageryProviders = [];
+    this._attributions = [];
 
     // Keep a reference to the promise so we can use it later
     this._fetch = fetchJsonp(metaDataUrl, {jsonpCallback: 'jsonp'})
       .then(function (response) {
-        return response.json()
+        return response.json();
       })
       .then(this._metaDataOnLoad.bind(this))
-      .catch(console.error.bind(console))
+      .catch(console.log.bind(console));
 
     // for https://github.com/Leaflet/Leaflet/issues/137
     if (!L.Browser.android) {
-      this.on('tileunload', this._onTileRemove)
+      this.on('tileunload', this._onTileRemove);
     }
   },
 
   createTile: function (coords, done) {
-    var tile = document.createElement('img')
+    var tile = document.createElement('img');
 
-    L.DomEvent.on(tile, 'load', L.bind(this._tileOnLoad, this, done, tile))
-    L.DomEvent.on(tile, 'error', L.bind(this._tileOnError, this, done, tile))
+    L.DomEvent.on(tile, 'load', L.bind(this._tileOnLoad, this, done, tile));
+    L.DomEvent.on(tile, 'error', L.bind(this._tileOnError, this, done, tile));
 
     if (this.options.crossOrigin) {
-      tile.crossOrigin = ''
+      tile.crossOrigin = '';
     }
 
     /*
      Alt tag is set to empty string to keep screen readers from reading URL and for compliance reasons
      http://www.w3.org/TR/WCAG20-TECHS/H67
     */
-    tile.alt = ''
+    tile.alt = '';
 
     // Don't create closure if we don't have to
     if (this._url) {
-      tile.src = this.getTileUrl(coords)
+      tile.src = this.getTileUrl(coords);
     } else {
       this._fetch.then(function () {
-        tile.src = this.getTileUrl(coords)
+        tile.src = this.getTileUrl(coords);
       }.bind(this)).catch(function (e) {
-        console.error(e)
-        done(e)
-      })
+        console.log(e);
+        done(e);
+      });
     }
 
-    return tile
+    return tile;
   },
 
   getTileUrl: function (coords) {
-    var quadkey = toQuadKey(coords.x, coords.y, coords.z)
-    var url = L.Util.template(this._url, {
+    var quadkey = toQuadKey(coords.x, coords.y, this._getZoomForUrl());
+    return L.Util.template(this._url, {
       quadkey: quadkey,
       subdomain: this._getSubdomain(coords),
       culture: this.options.culture
-    })
-    if (typeof this.options.style === 'string') {
-      url += '&st=' + this.options.style
-    }
-    return url
+    });
   },
 
   // Update the attribution control every time the map is moved
   onAdd: function (map) {
-    map.on('moveend', this._updateAttribution, this)
-    L.TileLayer.prototype.onAdd.call(this, map)
+    map.on('moveend', this._updateAttribution, this);
+    L.TileLayer.prototype.onAdd.call(this, map);
     this._attributions.forEach(function (attribution) {
-      map.attributionControl.addAttribution(attribution)
-    })
+      map.attributionControl.addAttribution(attribution);
+    });
   },
 
   // Clean up events and remove attributions from attribution control
   onRemove: function (map) {
-    map.off('moveend', this._updateAttribution, this)
+    map.off('moveend', this._updateAttribution, this);
     this._attributions.forEach(function (attribution) {
-      map.attributionControl.removeAttribution(attribution)
-    })
-    L.TileLayer.prototype.onRemove.call(this, map)
+      map.attributionControl.removeAttribution(attribution);
+    });
+    L.TileLayer.prototype.onRemove.call(this, map);
   },
 
   /**
@@ -192,34 +170,34 @@ L.TileLayer.Bing = L.TileLayer.extend({
    */
   getMetaData: function (latlng, zoom) {
     if (!this._map && (!latlng || !zoom)) {
-      return Promise.reject(new Error('If layer is not attached to map, you must provide LatLng and zoom'))
+      return Promise.reject(new Error('If layer is not attached to map, you must provide LatLng and zoom'));
     }
-    latlng = latlng || this._map.getCenter()
-    zoom = zoom || this._map.getZoom()
+    latlng = latlng || this._map.getCenter();
+    zoom = zoom || this._map.getZoom();
     var PointMetaDataUrl = L.Util.template(L.TileLayer.Bing.POINT_METADATA_URL, {
       bingMapsKey: this.options.bingMapsKey,
       imagerySet: this.options.imagerySet,
       z: zoom,
       lat: latlng.lat,
       lng: latlng.lng
-    })
+    });
     return fetchJsonp(PointMetaDataUrl, {jsonpCallback: 'jsonp'})
       .then(function (response) {
-        return response.json()
+        return response.json();
       })
-      .catch(console.error.bind(console))
+      .catch(console.log.bind(console));
   },
 
   _metaDataOnLoad: function (metaData) {
     if (metaData.statusCode !== 200) {
-      throw new Error('Bing Imagery Metadata error: \n' + JSON.stringify(metaData, null, '  '))
+      throw new Error('Bing Imagery Metadata error: \n' + JSON.stringify(metaData, null, '  '));
     }
-    var resource = metaData.resourceSets[0].resources[0]
-    this._url = resource.imageUrl
-    this._imageryProviders = resource.imageryProviders || []
-    this.options.subdomains = resource.imageUrlSubdomains
-    this._updateAttribution()
-    return Promise.resolve()
+    var resource = metaData.resourceSets[0].resources[0];
+    this._url = resource.imageUrl;
+    this._imageryProviders = resource.imageryProviders;
+    this.options.subdomains = resource.imageUrlSubdomains;
+    this._updateAttribution();
+    return Promise.resolve();
   },
 
   /**
@@ -227,25 +205,25 @@ L.TileLayer.Bing = L.TileLayer.extend({
    * within the current map bounds
    */
   _updateAttribution: function () {
-    var map = this._map
-    if (!map || !map.attributionControl) return
-    var zoom = map.getZoom()
-    var bbox = toBingBBox(map.getBounds().toBBoxString())
+    var map = this._map;
+    if (!map || !map.attributionControl) return;
+    var zoom = map.getZoom();
+    var bbox = toBingBBox(map.getBounds().toBBoxString());
     this._fetch.then(function () {
-      var newAttributions = this._getAttributions(bbox, zoom)
-      var prevAttributions = this._attributions
+      var newAttributions = this._getAttributions(bbox, zoom);
+      var prevAttributions = this._attributions;
       // Add any new provider attributions in the current area to the attribution control
       newAttributions.forEach(function (attr) {
-        if (prevAttributions.indexOf(attr) > -1) return
-        map.attributionControl.addAttribution(attr)
-      })
+        if (prevAttributions.indexOf(attr) > -1) return;
+        map.attributionControl.addAttribution(attr);
+      });
       // Remove any attributions that are no longer in the current area from the attribution control
       prevAttributions.filter(function (attr) {
-        if (newAttributions.indexOf(attr) > -1) return
-        map.attributionControl.removeAttribution(attr)
-      })
-      this._attributions = newAttributions
-    }.bind(this))
+        if (newAttributions.indexOf(attr) > -1) return;
+        map.attributionControl.removeAttribution(attr);
+      });
+      this._attributions = newAttributions;
+    }.bind(this));
   },
 
   /**
@@ -261,20 +239,20 @@ L.TileLayer.Bing = L.TileLayer.extend({
         if (bboxIntersect(bbox, provider.coverageAreas[i].bbox) &&
           zoom >= provider.coverageAreas[i].zoomMin &&
           zoom <= provider.coverageAreas[i].zoomMax) {
-          attributions.push(provider.attribution)
-          return attributions
+          attributions.push(provider.attribution);
+          return attributions;
         }
       }
-      return attributions
-    }, [])
+      return attributions;
+    }, []);
   }
-})
+});
 
 L.tileLayer.bing = function (options) {
-  return new L.TileLayer.Bing(options)
-}
+  return new L.TileLayer.Bing(options);
+};
 
-module.exports = L.TileLayer.Bing
+module.exports = L.TileLayer.Bing;
 
 }).call(this,typeof global !== "undefined" ? global : typeof self !== "undefined" ? self : typeof window !== "undefined" ? window : {})
 },{"bbox-intersect":2,"fetch-jsonp":3}],2:[function(require,module,exports){
@@ -316,7 +294,8 @@ module.exports = function(bbox1, bbox2){
     return 'jsonp_' + Date.now() + '_' + Math.ceil(Math.random() * 100000);
   }
 
-  // Known issue: Will throw 'Uncaught ReferenceError: callback_*** is not defined' error if request timeout
+  // Known issue: Will throw 'Uncaught ReferenceError: callback_*** is not defined'
+  // error if request timeout
   function clearFunction(functionName) {
     // IE8 throws an exception when you try to delete a property on window
     // http://stackoverflow.com/a/1824228/751089
@@ -332,16 +311,19 @@ module.exports = function(bbox1, bbox2){
     document.getElementsByTagName('head')[0].removeChild(script);
   }
 
-  var fetchJsonp = function fetchJsonp(url) {
-    var options = arguments[1] === undefined ? {} : arguments[1];
+  function fetchJsonp(_url) {
+    var options = arguments.length <= 1 || arguments[1] === undefined ? {} : arguments[1];
 
-    var timeout = options.timeout != null ? options.timeout : defaultOptions.timeout;
-    var jsonpCallback = options.jsonpCallback != null ? options.jsonpCallback : defaultOptions.jsonpCallback;
+    // to avoid param reassign
+    var url = _url;
+    var timeout = options.timeout || defaultOptions.timeout;
+    var jsonpCallback = options.jsonpCallback || defaultOptions.jsonpCallback;
 
     var timeoutId = undefined;
 
     return new Promise(function (resolve, reject) {
       var callbackFunction = options.jsonpCallbackFunction || generateCallbackFunction();
+      var scriptId = jsonpCallback + '_' + callbackFunction;
 
       window[callbackFunction] = function (response) {
         resolve({
@@ -354,7 +336,7 @@ module.exports = function(bbox1, bbox2){
 
         if (timeoutId) clearTimeout(timeoutId);
 
-        removeScript(jsonpCallback + '_' + callbackFunction);
+        removeScript(scriptId);
 
         clearFunction(callbackFunction);
       };
@@ -363,18 +345,18 @@ module.exports = function(bbox1, bbox2){
       url += url.indexOf('?') === -1 ? '?' : '&';
 
       var jsonpScript = document.createElement('script');
-      jsonpScript.setAttribute('src', url + jsonpCallback + '=' + callbackFunction);
-      jsonpScript.id = jsonpCallback + '_' + callbackFunction;
+      jsonpScript.setAttribute('src', '' + url + jsonpCallback + '=' + callbackFunction);
+      jsonpScript.id = scriptId;
       document.getElementsByTagName('head')[0].appendChild(jsonpScript);
 
       timeoutId = setTimeout(function () {
-        reject(new Error('JSONP request to ' + url + ' timed out'));
+        reject(new Error('JSONP request to ' + _url + ' timed out'));
 
         clearFunction(callbackFunction);
-        removeScript(jsonpCallback + '_' + callbackFunction);
+        removeScript(scriptId);
       }, timeout);
     });
-  };
+  }
 
   // export as global function
   /*
@@ -390,7 +372,6 @@ module.exports = function(bbox1, bbox2){
       throw new Error('polyfill failed because global object is unavailable in this environment');
     }
   }
-  
   local.fetchJsonp = fetchJsonp;
   */
 
